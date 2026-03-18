@@ -50,6 +50,8 @@ export default function HomePage() {
   const [allScores, setAllScores] = useState<HoleScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRound, setSelectedRound] = useState<number | 'all'>('all');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchMatches = useCallback(async () => {
     let round3Matches: Match[] = [];
@@ -101,31 +103,44 @@ export default function HomePage() {
     setMatches(mergedMatches);
   }, []);
 
-  useEffect(() => {
-    async function fetchAllScores() {
-      try {
-        const { data } = await supabase.from('hole_scores').select('*');
-        if (data) {
-          setAllScores(data.map(s => ({
-            matchId: s.match_id,
-            playerId: s.player_id,
-            hole: s.hole,
-            grossScore: s.gross_score,
-            createdAt: s.created_at,
-          })));
-        }
-      } catch (err) {
-        console.log('No scores yet');
-      } finally {
-        setLoading(false);
+  const fetchAllScores = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('hole_scores').select('*');
+      if (data) {
+        setAllScores(data.map(s => ({
+          matchId: s.match_id,
+          playerId: s.player_id,
+          hole: s.hole,
+          grossScore: s.gross_score,
+          createdAt: s.created_at,
+        })));
       }
+    } catch (err) {
+      console.log('No scores yet');
+    }
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([fetchMatches(), fetchAllScores()]);
+    setLastRefresh(new Date());
+    setRefreshing(false);
+  }, [fetchMatches, fetchAllScores]);
+
+  useEffect(() => {
+    async function initialLoad() {
+      await fetchMatches();
+      await fetchAllScores();
+      setLastRefresh(new Date());
+      setLoading(false);
     }
 
-    fetchMatches();
-    fetchAllScores();
+    initialLoad();
 
+    // Real-time subscriptions
     const matchChannel = subscribeToLeaderboard(() => {
       fetchMatches();
+      setLastRefresh(new Date());
     });
 
     const scoresChannel = supabase
@@ -133,14 +148,23 @@ export default function HomePage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'hole_scores' }, () => {
         fetchAllScores();
         fetchMatches();
+        setLastRefresh(new Date());
       })
       .subscribe();
+
+    // Polling fallback - refresh every 30 seconds for reliability on mobile
+    const pollInterval = setInterval(() => {
+      fetchMatches();
+      fetchAllScores();
+      setLastRefresh(new Date());
+    }, 30000);
 
     return () => {
       supabase.removeChannel(matchChannel);
       supabase.removeChannel(scoresChannel);
+      clearInterval(pollInterval);
     };
-  }, [fetchMatches]);
+  }, [fetchMatches, fetchAllScores]);
 
   const allDotAllocations = useMemo(() => {
     const map = new Map<string, DotAllocation[]>();
@@ -278,6 +302,21 @@ export default function HomePage() {
             <div className="text-white/50">
               {enrichedMatches.filter(m => m.isComplete).length}/{enrichedMatches.length} complete
             </div>
+            <button
+              onClick={refreshAll}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 text-white/70 hover:text-white transition-colors disabled:opacity-50"
+            >
+              <svg
+                className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>{refreshing ? 'Updating...' : 'Refresh'}</span>
+            </button>
           </div>
         </div>
       </div>
