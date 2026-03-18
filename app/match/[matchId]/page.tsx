@@ -265,7 +265,12 @@ export default function MatchPage() {
       }));
 
     if (newScores.length === 0) {
+      // No changes to save, but still advance to next hole
       setSyncStatus('synced');
+      if (currentHole < 18) {
+        setCurrentHole(prev => prev + 1);
+        setPendingScores({});
+      }
       return;
     }
 
