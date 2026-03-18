@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* Masters-inspired design system */
+:root {
+  --masters-green: #006747;
+  --masters-cream: #F9F7F2;
+  --masters-black: #1A1A1A;
+  --masters-gold: #B29600;
+  --masters-gray: #8A8A8A;
+  --masters-light-green: #E8F5F0;
+  --bogey-gray: #D1D1D1;
+}
+
+/* Custom theme configuration for Tailwind v4 */
+@theme {
+  /* Colors */
+  --color-masters-green: #006747;
+  --color-masters-cream: #F9F7F2;
+  --color-masters-black: #1A1A1A;
+  --color-masters-gold: #B29600;
+  --color-masters-gray: #8A8A8A;
+  --color-masters-light-green: #E8F5F0;
+  --color-bogey-gray: #D1D1D1;
+
+  /* Fonts */
+  --font-family-serif: var(--font-frank-ruhl), Georgia, serif;
+  --font-family-sans: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+body {
+  color: var(--masters-black);
+  background: var(--masters-cream);
+  min-height: 100vh;
+}
+
+/* Masters-inspired gradient header */
+.masters-gradient {
+  background: linear-gradient(135deg, #006747 0%, #004D35 100%);
+}
+
+/* =============================================================================
+   Score Display Classes - Masters Style
+   ============================================================================= */
+
+/* Birdie: single circle with green border */
+.score-birdie {
+  @apply inline-flex items-center justify-center w-9 h-9 rounded-full border-2 border-masters-green text-masters-green font-bold text-sm;
+}
+
+/* Par: plain text, no border */
+.score-par {
+  @apply inline-flex items-center justify-center w-9 h-9 text-masters-black font-medium text-sm;
+}
+
+/* Bogey: single square with gray border */
+.score-bogey {
+  @apply inline-flex items-center justify-center w-9 h-9 rounded-none border-2 border-bogey-gray text-masters-black font-bold text-sm;
+}
+
+/* Eagle: double circle - use wrapper component */
+/* Double bogey+: double square - use wrapper component */
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+/* Custom scrollbar for mobile */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--masters-cream);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--masters-green);
+  border-radius: 4px;
+}
+
+/* Score input touch improvements */
+@media (hover: none) {
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Sticky header support */
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Table styling for scorecards */
+.scorecard-table {
+  @apply w-full text-sm border-collapse;
+}
+
+.scorecard-table th,
+.scorecard-table td {
+  @apply p-2 text-center;
+}
+
+.scorecard-table thead tr:first-child {
+  @apply bg-masters-green text-white;
+}
+
+/* Team color backgrounds */
+.team-brown {
+  @apply bg-amber-50;
+}
+
+.team-rusty {
+  @apply bg-orange-50;
+}
