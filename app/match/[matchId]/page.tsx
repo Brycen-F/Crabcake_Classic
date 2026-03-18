@@ -528,7 +528,7 @@ export default function MatchPage() {
                       {player.name.split(' ')[0]}
                     </div>
                     <div className="text-xs text-masters-gold">
-                      {strokes > 0 ? `+${strokes}` : '0'}
+                      {strokes} {strokes === 1 ? 'stroke' : 'strokes'}
                     </div>
                   </div>
                 );
@@ -549,7 +549,7 @@ export default function MatchPage() {
                       {player.name.split(' ')[0]}
                     </div>
                     <div className="text-xs text-masters-gold">
-                      {strokes > 0 ? `+${strokes}` : '0'}
+                      {strokes} {strokes === 1 ? 'stroke' : 'strokes'}
                     </div>
                   </div>
                 );

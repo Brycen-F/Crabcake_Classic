@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { Match, HoleScore, DotAllocation } from '@/lib/types';
-import { PRESET_MATCHUPS, COURSES, getPlayer } from '@/lib/constants';
+import { PRESET_MATCHUPS, COURSES, getPlayer, PLAYERS } from '@/lib/constants';
 import { supabase, subscribeToLeaderboard } from '@/lib/supabase';
 import { calculateDotAllocations, calculateNassauResult, getHoleByHoleStatus } from '@/lib/scoring';
 import Round3Setup from '@/components/Round3Setup';
@@ -49,7 +49,7 @@ export default function HomePage() {
   const [matches, setMatches] = useState<Match[]>(INITIAL_MATCHES);
   const [allScores, setAllScores] = useState<HoleScore[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRound, setSelectedRound] = useState<number | 'all'>('all');
+  const [selectedRound, setSelectedRound] = useState<number | 'all' | 'players'>('all');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -248,7 +248,61 @@ export default function HomePage() {
 
   const filteredMatches = selectedRound === 'all'
     ? enrichedMatches
+    : selectedRound === 'players'
+    ? []
     : enrichedMatches.filter(m => m.round === selectedRound);
+
+  // Calculate player stats for the Players tab
+  const playerStats = useMemo(() => {
+    return PLAYERS.map(player => {
+      // Find matches this player participated in
+      const playerMatches = enrichedMatches.filter(m =>
+        m.team1Players.includes(player.id) || m.team2Players.includes(player.id)
+      );
+
+      // Calculate gross scores per round
+      const getGrossTotal = (roundNum: number) => {
+        const match = playerMatches.find(m => m.round === roundNum);
+        if (!match) return null;
+        const matchScores = allScores.filter(s => s.matchId === match.id && s.playerId === player.id);
+        if (matchScores.length === 0) return null;
+        return matchScores.reduce((sum, s) => sum + s.grossScore, 0);
+      };
+
+      const r1 = getGrossTotal(1);
+      const r2 = getGrossTotal(2);
+      const r3 = getGrossTotal(3);
+      const total = (r1 || 0) + (r2 || 0) + (r3 || 0);
+      const hasScores = r1 !== null || r2 !== null || r3 !== null;
+
+      // Calculate points contributed (split for fourball, full for singles)
+      let points = 0;
+      playerMatches.forEach(match => {
+        if (match.result) {
+          const isTeam1 = match.team1Players.includes(player.id);
+          const teamPoints = isTeam1 ? match.result.team1Points : match.result.team2Points;
+          // Split for fourball (2 players), full for singles (1 player)
+          const teammates = isTeam1 ? match.team1Players.length : match.team2Players.length;
+          points += teamPoints / teammates;
+        }
+      });
+
+      return {
+        player,
+        r1,
+        r2,
+        r3,
+        total: hasScores ? total : null,
+        points,
+      };
+    }).sort((a, b) => {
+      // Sort by total score ascending (lowest first), null scores at bottom
+      if (a.total === null && b.total === null) return 0;
+      if (a.total === null) return 1;
+      if (b.total === null) return -1;
+      return a.total - b.total;
+    });
+  }, [enrichedMatches, allScores]);
 
   const liveMatches = enrichedMatches.filter(m => m.isLive);
 
@@ -324,17 +378,17 @@ export default function HomePage() {
       {/* Round Tabs */}
       <div className="bg-white border-b border-gray-200 sticky top-[52px] z-40">
         <div className="flex">
-          {['all', 1, 2, 3].map((round) => (
+          {(['all', 1, 2, 3, 'players'] as const).map((tab) => (
             <button
-              key={round}
-              onClick={() => setSelectedRound(round as number | 'all')}
+              key={tab}
+              onClick={() => setSelectedRound(tab)}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                selectedRound === round
+                selectedRound === tab
                   ? 'border-masters-green text-masters-green'
                   : 'border-transparent text-masters-gray hover:text-masters-black'
               }`}
             >
-              {round === 'all' ? 'All' : `Round ${round}`}
+              {tab === 'all' ? 'All' : tab === 'players' ? 'Players' : `R${tab}`}
             </button>
           ))}
         </div>
@@ -349,27 +403,82 @@ export default function HomePage() {
         />
       )}
 
-      {/* Leaderboard Table */}
-      <div className="bg-white">
-        {/* Table Header */}
-        <div className="grid grid-cols-12 gap-1 px-3 py-2 bg-masters-green text-white text-xs font-medium uppercase tracking-wide">
-          <div className="col-span-1"></div>
-          <div className="col-span-5">Match</div>
-          <div className="col-span-2 text-center">Thru</div>
-          <div className="col-span-2 text-center">Status</div>
-          <div className="col-span-2 text-center">Pts</div>
+      {/* Player Leaderboard - only show when Players tab is selected */}
+      {selectedRound === 'players' && (
+        <div className="bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-masters-green text-white text-xs font-medium uppercase tracking-wide">
+                  <th className="sticky left-0 z-10 bg-masters-green px-3 py-2 text-left min-w-[100px]">Player</th>
+                  <th className="px-2 py-2 text-center min-w-[50px]">R1</th>
+                  <th className="px-2 py-2 text-center min-w-[50px]">R2</th>
+                  <th className="px-2 py-2 text-center min-w-[50px]">R3</th>
+                  <th className="px-2 py-2 text-center min-w-[55px]">Total</th>
+                  <th className="px-3 py-2 text-center min-w-[50px]">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playerStats.map((stat, idx) => (
+                  <tr
+                    key={stat.player.id}
+                    className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                  >
+                    <td className={`sticky left-0 z-10 px-3 py-3 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${stat.player.team === 'BROWN' ? 'bg-amber-500' : 'bg-orange-400'}`} />
+                        <span className={stat.player.team === 'BROWN' ? 'font-semibold text-masters-black' : 'font-medium text-masters-gray'}>
+                          {stat.player.name.split(' ')[0]}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 text-center text-masters-black">
+                      {stat.r1 !== null ? stat.r1 : <span className="text-gray-300">--</span>}
+                    </td>
+                    <td className="px-2 py-3 text-center text-masters-black">
+                      {stat.r2 !== null ? stat.r2 : <span className="text-gray-300">--</span>}
+                    </td>
+                    <td className="px-2 py-3 text-center text-masters-black">
+                      {stat.r3 !== null ? stat.r3 : <span className="text-gray-300">--</span>}
+                    </td>
+                    <td className="px-2 py-3 text-center font-bold text-masters-black">
+                      {stat.total !== null ? stat.total : <span className="text-gray-300">--</span>}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`font-medium ${stat.player.team === 'BROWN' ? 'text-amber-600' : 'text-orange-500'}`}>
+                        {stat.points > 0 ? stat.points.toFixed(1) : '--'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
 
-        {/* Match Rows */}
-        {filteredMatches.length === 0 && selectedRound !== 3 ? (
-          <div className="px-4 py-8 text-center text-masters-gray">
-            No matches for this round yet
+      {/* Match Leaderboard Table - hide when Players tab is selected */}
+      {selectedRound !== 'players' && (
+        <div className="bg-white">
+          {/* Table Header */}
+          <div className="grid grid-cols-12 gap-1 px-3 py-2 bg-masters-green text-white text-xs font-medium uppercase tracking-wide">
+            <div className="col-span-1"></div>
+            <div className="col-span-5">Match</div>
+            <div className="col-span-2 text-center">Thru</div>
+            <div className="col-span-2 text-center">Status</div>
+            <div className="col-span-2 text-center">Pts</div>
           </div>
-        ) : filteredMatches.length === 0 && selectedRound === 3 ? (
-          <div className="px-4 py-4 text-center text-masters-gray text-sm">
-            Create matches above to get started
-          </div>
-        ) : (
+
+          {/* Match Rows */}
+          {filteredMatches.length === 0 && selectedRound !== 3 ? (
+            <div className="px-4 py-8 text-center text-masters-gray">
+              No matches for this round yet
+            </div>
+          ) : filteredMatches.length === 0 && selectedRound === 3 ? (
+            <div className="px-4 py-4 text-center text-masters-gray text-sm">
+              Create matches above to get started
+            </div>
+          ) : (
           filteredMatches.map((match, idx) => {
             const course = COURSES[match.courseId];
             const team1Names = match.team1Players.map(id => getPlayer(id)?.name.split(' ')[0]).join('/');
@@ -440,7 +549,8 @@ export default function HomePage() {
             );
           })
         )}
-      </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="px-4 py-4 bg-white border-t border-gray-100">
