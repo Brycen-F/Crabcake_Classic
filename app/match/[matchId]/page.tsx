@@ -753,8 +753,8 @@ export default function MatchPage() {
           match={match}
           scores={scores}
           dotAllocations={dotAllocations}
-          currentHole={currentHole}
-          pendingScores={pendingScores}
+          currentHole={match.status === 'complete' ? undefined : currentHole}
+          pendingScores={match.status === 'complete' ? {} : pendingScores}
         />
       </div>
 
