@@ -55,6 +55,7 @@ export default function MatchPage() {
   const [pendingScores, setPendingScores] = useState<Record<string, number>>({});
   const [retryQueue, setRetryQueue] = useState<HoleScore[]>([]);
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [editingComplete, setEditingComplete] = useState(false);
 
   const touchStartX = useRef<number | null>(null);
 
@@ -265,13 +266,37 @@ export default function MatchPage() {
       }));
 
     if (newScores.length === 0) {
-      // No changes to save, but still advance to next hole
+      // No changes to save
       setSyncStatus('synced');
       if (currentHole < 18) {
+        // Advance to next hole
         setCurrentHole(prev => prev + 1);
         setPendingScores({});
+        return;
+      } else {
+        // On hole 18 - check if we can complete the round
+        const hole18Scores = scores.filter(s => s.hole === 18);
+        if (hole18Scores.length === allPlayerIds.length) {
+          // All players have scores for hole 18, complete the round
+          const result = calculateNassauResult(match, scores, dotAllocations);
+          setMatch(prev => prev ? { ...prev, status: 'complete', result } : null);
+
+          // Update Supabase
+          try {
+            await supabase
+              .from('matches')
+              .update({
+                status: 'complete',
+                current_hole: 18,
+                result: JSON.stringify(result),
+              })
+              .eq('id', match.id);
+          } catch (err) {
+            console.log('Failed to update match status');
+          }
+        }
+        return;
       }
-      return;
     }
 
     // Update local state immediately (optimistic update)
@@ -348,22 +373,39 @@ export default function MatchPage() {
     }
 
     // Update local match state regardless of sync status
-    const isComplete = currentHole === 18 && updatedScores.filter(s => s.hole === 18).length === allPlayerIds.length;
-    const result = isComplete
-      ? calculateNassauResult(match, updatedScores, dotAllocations)
-      : undefined;
-
-    setMatch(prev => prev ? {
-      ...prev,
-      status: isComplete ? 'complete' : 'in_progress',
-      currentHole: Math.min(currentHole + 1, 18),
-      result,
-    } : null);
-
-    // Move to next hole
-    if (currentHole < 18) {
-      setCurrentHole(prev => prev + 1);
+    if (editingComplete) {
+      // When editing a complete match, recalculate result with new scores
+      const newResult = calculateNassauResult(match, updatedScores, dotAllocations);
+      setMatch(prev => prev ? { ...prev, result: newResult } : null);
       setPendingScores({});
+
+      // Update result in Supabase
+      try {
+        await supabase
+          .from('matches')
+          .update({ result: JSON.stringify(newResult) })
+          .eq('id', match.id);
+      } catch (err) {
+        console.log('Failed to update result');
+      }
+    } else {
+      const isComplete = currentHole === 18 && updatedScores.filter(s => s.hole === 18).length === allPlayerIds.length;
+      const result = isComplete
+        ? calculateNassauResult(match, updatedScores, dotAllocations)
+        : undefined;
+
+      setMatch(prev => prev ? {
+        ...prev,
+        status: isComplete ? 'complete' : 'in_progress',
+        currentHole: Math.min(currentHole + 1, 18),
+        result,
+      } : null);
+
+      // Move to next hole
+      if (currentHole < 18) {
+        setCurrentHole(prev => prev + 1);
+        setPendingScores({});
+      }
     }
   };
 
@@ -540,7 +582,7 @@ export default function MatchPage() {
       )}
 
       {/* ACTIVE HOLE INPUT */}
-      {match.status !== 'complete' && (
+      {(match.status !== 'complete' || editingComplete) && (
         <div
           className="mx-4 mt-4"
           onTouchStart={handleTouchStart}
@@ -729,19 +771,37 @@ export default function MatchPage() {
 
             {/* Next Hole Button */}
             <div className="p-4 border-t border-gray-100">
-              <button
-                onClick={saveHoleScores}
-                disabled={syncStatus === 'syncing'}
-                className="w-full h-14 bg-masters-green text-white font-bold rounded-xl text-lg hover:bg-masters-green/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-              >
-                {syncStatus === 'syncing' ? (
-                  'Saving...'
-                ) : currentHole < 18 ? (
-                  <>Save & Continue to Hole {currentHole + 1} →</>
-                ) : (
-                  'Complete Round'
-                )}
-              </button>
+              {editingComplete ? (
+                <div className="flex gap-3">
+                  <button
+                    onClick={saveHoleScores}
+                    disabled={syncStatus === 'syncing' || Object.keys(pendingScores).length === 0}
+                    className="flex-1 h-14 bg-masters-green text-white font-bold rounded-xl text-lg hover:bg-masters-green/90 disabled:opacity-50 transition-colors"
+                  >
+                    {syncStatus === 'syncing' ? 'Saving...' : 'Save Changes'}
+                  </button>
+                  <button
+                    onClick={() => setEditingComplete(false)}
+                    className="px-6 h-14 border-2 border-masters-green text-masters-green font-bold rounded-xl text-lg hover:bg-masters-green/10 transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={saveHoleScores}
+                  disabled={syncStatus === 'syncing'}
+                  className="w-full h-14 bg-masters-green text-white font-bold rounded-xl text-lg hover:bg-masters-green/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {syncStatus === 'syncing' ? (
+                    'Saving...'
+                  ) : currentHole < 18 ? (
+                    <>Save & Continue to Hole {currentHole + 1} →</>
+                  ) : (
+                    'Complete Round'
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -759,7 +819,7 @@ export default function MatchPage() {
       </div>
 
       {/* Match Complete */}
-      {match.status === 'complete' && match.result && (
+      {match.status === 'complete' && match.result && !editingComplete && (
         <div className="mx-4 mb-6 bg-masters-green rounded-xl p-6 text-center">
           <h2 className="text-2xl font-serif font-bold text-white mb-2">Match Complete</h2>
           <p className="text-masters-gold text-lg font-medium">
@@ -770,6 +830,12 @@ export default function MatchPage() {
               : `Match Halved ${match.result.team1Points}-${match.result.team2Points}`}
           </p>
           <div className="mt-4 flex justify-center gap-3">
+            <button
+              onClick={() => setEditingComplete(true)}
+              className="px-6 py-2 bg-masters-gold text-masters-black font-medium rounded-lg hover:bg-masters-gold/90 transition-colors"
+            >
+              Edit Scores
+            </button>
             <button
               onClick={() => router.push('/')}
               className="px-6 py-2 bg-white text-masters-green font-medium rounded-lg hover:bg-masters-cream transition-colors"
