@@ -49,6 +49,7 @@ export default function Round3Setup({ existingMatches, onMatchCreated, onMatchDe
   const [selectedBrown, setSelectedBrown] = useState<string | null>(null);
   const [selectedRusty, setSelectedRusty] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const brownPlayers = getTeamPlayers('BROWN');
   const rustyPlayers = getTeamPlayers('RUSTY');
@@ -239,24 +240,47 @@ export default function Round3Setup({ existingMatches, onMatchCreated, onMatchDe
                   idx !== existingMatches.length - 1 ? 'border-b border-gray-100' : ''
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <span className="w-5 h-5 rounded-full bg-masters-green text-white text-xs font-bold flex items-center justify-center">
-                    {idx + 1}
-                  </span>
-                  <div className="text-sm">
-                    <span className="font-semibold text-masters-black">{brownName.split(' ')[0]}</span>
-                    <span className="text-masters-gray mx-1.5">vs</span>
-                    <span className="font-medium text-masters-gray">{rustyName.split(' ')[0]}</span>
-                  </div>
+                {confirmDelete === match.id ? (
+                <div className="flex items-center gap-2 w-full">
+                  <span className="text-sm text-red-600 flex-1">Delete this match?</span>
+                  <button
+                    onClick={() => {
+                      deleteMatch(match.id);
+                      setConfirmDelete(null);
+                    }}
+                    className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(null)}
+                    className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
                 </div>
-                <button
-                  onClick={() => deleteMatch(match.id)}
-                  className="w-7 h-7 rounded-full text-red-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <span className="w-5 h-5 rounded-full bg-masters-green text-white text-xs font-bold flex items-center justify-center">
+                      {idx + 1}
+                    </span>
+                    <div className="text-sm">
+                      <span className="font-semibold text-masters-black">{brownName.split(' ')[0]}</span>
+                      <span className="text-masters-gray mx-1.5">vs</span>
+                      <span className="font-medium text-masters-gray">{rustyName.split(' ')[0]}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setConfirmDelete(match.id)}
+                    className="w-7 h-7 rounded-full text-red-400 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </>
+              )}
               </div>
             );
           })}
