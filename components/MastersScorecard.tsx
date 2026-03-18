@@ -156,7 +156,7 @@ export default function MastersScorecard({
                 >
                   <td className={`sticky left-0 z-10 px-3 py-3 text-left ${
                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  } ${player.team === 'BROWN' ? 'font-semibold text-masters-black' : 'font-medium text-masters-gray'}`}>
+                  } ${player.team === 'BROWN' ? 'font-semibold text-masters-green' : 'font-medium text-masters-green/60'}`}>
                     <span className="truncate max-w-[70px] block">{player.name.split(' ')[0]}</span>
                   </td>
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(hole => {
@@ -309,7 +309,7 @@ export default function MastersScorecard({
                 >
                   <td className={`sticky left-0 z-10 px-3 py-3 text-left ${
                     idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                  } ${player.team === 'BROWN' ? 'font-semibold text-masters-black' : 'font-medium text-masters-gray'}`}>
+                  } ${player.team === 'BROWN' ? 'font-semibold text-masters-green' : 'font-medium text-masters-green/60'}`}>
                     <span className="truncate max-w-[70px] block">{player.name.split(' ')[0]}</span>
                   </td>
                   {[10, 11, 12, 13, 14, 15, 16, 17, 18].map(hole => {

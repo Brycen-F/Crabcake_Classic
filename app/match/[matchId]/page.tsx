@@ -717,7 +717,7 @@ export default function MatchPage() {
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={player.team === 'BROWN' ? 'font-semibold text-masters-black' : 'font-medium text-masters-gray'}>
+                      <span className={player.team === 'BROWN' ? 'font-semibold text-masters-green' : 'font-medium text-masters-green/60'}>
                         {player.name.split(' ')[0]}
                       </span>
                       {dots > 0 && (

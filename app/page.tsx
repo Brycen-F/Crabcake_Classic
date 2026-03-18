@@ -403,57 +403,81 @@ export default function HomePage() {
         />
       )}
 
-      {/* Player Leaderboard - only show when Players tab is selected */}
+      {/* Player Leaderboard - Masters style */}
       {selectedRound === 'players' && (
-        <div className="bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-masters-green text-white text-xs font-medium uppercase tracking-wide">
-                  <th className="sticky left-0 z-10 bg-masters-green px-3 py-2 text-left min-w-[100px]">Player</th>
-                  <th className="px-2 py-2 text-center min-w-[50px]">R1</th>
-                  <th className="px-2 py-2 text-center min-w-[50px]">R2</th>
-                  <th className="px-2 py-2 text-center min-w-[50px]">R3</th>
-                  <th className="px-2 py-2 text-center min-w-[55px]">Total</th>
-                  <th className="px-3 py-2 text-center min-w-[50px]">Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {playerStats.map((stat, idx) => (
-                  <tr
-                    key={stat.player.id}
-                    className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
-                  >
-                    <td className={`sticky left-0 z-10 px-3 py-3 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${stat.player.team === 'BROWN' ? 'bg-amber-500' : 'bg-orange-400'}`} />
-                        <span className={stat.player.team === 'BROWN' ? 'font-semibold text-masters-black' : 'font-medium text-masters-gray'}>
-                          {stat.player.name.split(' ')[0]}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-2 py-3 text-center text-masters-black">
-                      {stat.r1 !== null ? stat.r1 : <span className="text-gray-300">--</span>}
-                    </td>
-                    <td className="px-2 py-3 text-center text-masters-black">
-                      {stat.r2 !== null ? stat.r2 : <span className="text-gray-300">--</span>}
-                    </td>
-                    <td className="px-2 py-3 text-center text-masters-black">
-                      {stat.r3 !== null ? stat.r3 : <span className="text-gray-300">--</span>}
-                    </td>
-                    <td className="px-2 py-3 text-center font-bold text-masters-black">
-                      {stat.total !== null ? stat.total : <span className="text-gray-300">--</span>}
-                    </td>
-                    <td className="px-3 py-3 text-center">
-                      <span className={`font-medium ${stat.player.team === 'BROWN' ? 'text-amber-600' : 'text-orange-500'}`}>
-                        {stat.points > 0 ? stat.points.toFixed(1) : '--'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="bg-masters-cream">
+          {/* Title */}
+          <div className="px-4 py-4">
+            <h2 className="text-2xl font-serif text-masters-green">Leader Board</h2>
           </div>
+
+          {/* Table */}
+          <div className="bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-masters-green/90 text-white text-[11px] font-medium uppercase tracking-wider">
+                    <th className="px-2 py-2.5 text-center w-12">Pos</th>
+                    <th className="px-3 py-2.5 text-left">Player</th>
+                    <th className="px-2 py-2.5 text-center w-14">Tot</th>
+                    <th className="px-2 py-2.5 text-center w-12">R1</th>
+                    <th className="px-2 py-2.5 text-center w-12">R2</th>
+                    <th className="px-2 py-2.5 text-center w-12">R3</th>
+                    <th className="px-2 py-2.5 text-center w-12">Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {playerStats.map((stat, idx) => {
+                    // Calculate position with ties
+                    const getPosition = () => {
+                      if (stat.total === null) return '--';
+                      const sortedTotals = playerStats
+                        .filter(s => s.total !== null)
+                        .map(s => s.total as number)
+                        .sort((a, b) => a - b);
+                      const pos = sortedTotals.indexOf(stat.total) + 1;
+                      const isTied = sortedTotals.filter(t => t === stat.total).length > 1;
+                      return isTied ? `T${pos}` : `${pos}`;
+                    };
+
+                    return (
+                      <tr
+                        key={stat.player.id}
+                        className={`border-b border-gray-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/70'}`}
+                      >
+                        <td className="px-2 py-3 text-center text-masters-gray text-xs font-medium">
+                          {getPosition()}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`font-semibold uppercase tracking-wide text-[13px] ${stat.player.team === 'BROWN' ? 'text-masters-green' : 'text-masters-green/60'}`}>
+                            {stat.player.name.split(' ')[0]}
+                          </span>
+                        </td>
+                        <td className="px-2 py-3 text-center font-bold text-masters-green">
+                          {stat.total !== null ? stat.total : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-2 py-3 text-center text-masters-black">
+                          {stat.r1 !== null ? stat.r1 : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-2 py-3 text-center text-masters-black">
+                          {stat.r2 !== null ? stat.r2 : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-2 py-3 text-center text-masters-black">
+                          {stat.r3 !== null ? stat.r3 : <span className="text-gray-300">--</span>}
+                        </td>
+                        <td className="px-2 py-3 text-center">
+                          <span className={`font-semibold ${stat.player.team === 'BROWN' ? 'text-masters-green' : 'text-masters-green/60'}`}>
+                            {stat.points > 0 ? stat.points.toFixed(1) : '--'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -506,10 +530,10 @@ export default function HomePage() {
 
                 {/* Match info */}
                 <div className="col-span-5">
-                  <div className="text-sm text-masters-black truncate">
-                    <span className="font-medium">{team1IsBrown ? team1Names : team2Names}</span>
+                  <div className="text-sm truncate">
+                    <span className="font-semibold text-masters-green">{team1IsBrown ? team1Names : team2Names}</span>
                   </div>
-                  <div className="text-sm text-masters-gray truncate mt-0.5">
+                  <div className="text-sm text-masters-green/60 truncate mt-0.5">
                     {team1IsBrown ? team2Names : team1Names}
                   </div>
                   <div className="text-xs text-masters-gray/70 mt-1">
